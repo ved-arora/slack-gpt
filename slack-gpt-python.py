@@ -34,11 +34,14 @@ chatgpt_chain = LLMChain(
     memory=ConversationBufferWindowMemory(k=2),
 )
 
-# Slack message handler
-@app.message(".*")
-def message_handler(message, say, logger):
-    print(message)
-    output = chatgpt_chain.predict(human_input = message['text'])
+
+@app.event("app_mention")
+def handle_app_mention_events(body, say, logger):
+    logger.info(body)
+    # Extract the text from the event body
+    text = body['event']['text']
+    # Respond to the mention (for example, you could use your chat model here)
+    output = chatgpt_chain.predict(human_input=text)
     say(output)
 
 
