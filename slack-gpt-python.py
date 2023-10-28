@@ -13,20 +13,22 @@ import re
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 # Langchain implimentation
-template = """Assistant is a large language model trained by OpenAI.
+template = """
+Human: 
+You are a summarizer for a professional organization! This group has lots of people, so sometimes, important details get lost in all the texts.
 
-Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. As a language model, Assistant is able to generate human-like text based on the input it receives, allowing it to engage in natural-sounding conversations and provide responses that are coherent and relevant to the topic at hand.
+###Input String###:
+{human_input}
 
-Assistant is constantly learning and improving, and its capabilities are constantly evolving. It is able to process and understand large amounts of text, and can use this knowledge to provide accurate and informative responses to a wide range of questions. Additionally, Assistant is able to generate its own text based on the input it receives, allowing it to engage in discussions and provide explanations and descriptions on a wide range of topics.
 
-Overall, Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and information on a wide range of topics. Whether you need help with a specific question or just want to have a conversation about a particular topic, Assistant is here to assist.
+###Task###:
+Create a summary of the following text conversations, and be sure to include ALL dates, calls, and events planned. If a decision was reached on a topic, be sure to say what the initial topic was and briefly tell me the decision that has been made.
 
-{history}
-Human: {human_input}
+
 Assistant:"""
 
 prompt = PromptTemplate(
-    input_variables = ["history", "human_input"],
+    input_variables = ["human_input"],
     template = template
 )
 
@@ -51,8 +53,60 @@ def replace_tags(messages):
     messages = [pattern.sub(r'\1', message) for message in messages]
     return messages
 
+def starts_with_U_and_number(s):
+    return s.startswith('U') and len(s) > 1 and s[1].isdigit()
+
 def cleanMessage(messages):
-    return [message for message in messages if not message[0].startswith(' ')]
+    messages = [message for message in messages if not message[0].startswith(' ')]
+    m_lists = []
+    i = 0
+    while i < len(messages)-1:
+        str_list = []
+        str_list.append(messages[i][:11])
+        str_list.append(messages[i][12:])
+        i+=1
+        while (not starts_with_U_and_number(messages[i])) and i<len(messages)-1:
+            str_list.append(messages[i])
+            i += 1
+        m_lists.append(str_list)
+    m_lists = m_lists[::-1]
+    cleaned = []
+    for i in m_lists:
+        cleaned.append([i[0]] + i[:0:-1])
+
+    final = []
+    for ls in cleaned:
+        print(get_username_from_id(ls[0]))
+        ls[0] = get_username_from_id(ls[0])
+        temp = ls[0] + ":"
+        for words in ls[1:]:
+            temp = temp + words + "|"
+        final.append(temp)
+    return final
+
+
+
+
+def fetch_user_dict(token):
+    client = WebClient(token=token)
+    user_response = client.users_list()
+    return {user['id']: user['real_name'] for user in user_response['members']}
+
+
+
+
+
+def replace_user_tags(messages, user_dict):
+    def repl(match):
+        user_id = match.group(1)
+        return '@' + user_dict.get(user_id, 'UnknownUser')
+    
+    pattern = re.compile(r'<@(U[A-Z0-9]+)>')
+    
+    return [pattern.sub(repl, message) for message in messages]
+
+
+
 
 
 def fetch_messages_from_last_24_hours(channel_id, token):
@@ -64,15 +118,25 @@ def fetch_messages_from_last_24_hours(channel_id, token):
     # Initialize a Slack client
     client = WebClient(token=token)
 
+    # Fetch the list of all users
+    user_response = client.users_list()
+    # Create a dictionary mapping user IDs to user names
+    user_dict = {user['id']: user['real_name'] for user in user_response['members']}
+    
     # Fetch the channel's history
     response = client.conversations_history(
         channel=channel_id,
         oldest=oldest_timestamp
     )
-    messages = [message['text'] for message in response['messages']]
-    named_messages = replace_tags(messages)
-    # Return the messages
+
+    named_messages = []
+    for message in response['messages']:
+        user_id = message.get('user')
+        user_name = user_dict.get(user_id, 'Unknown User')
+        named_messages.append(f"{user_name}: {message['text']}")
+
     return named_messages
+
 
 @app.event("app_mention")
 def handle_app_mention_events(body, logger, client):
@@ -81,9 +145,15 @@ def handle_app_mention_events(body, logger, client):
     text = body['event']['text']
     user_id = body['event']['user']
     channel_id = body['event']['channel']
-    
+
+    # Fetch the last 24 hours of messages (if you still need this functionality)
+    messages = fetch_messages_from_last_24_hours(channel_id, os.environ.get("SLACK_BOT_TOKEN"))
+    user_dict = fetch_user_dict(os.environ["SLACK_BOT_TOKEN"])
+    processed_messages = replace_user_tags(messages, user_dict)
+    processed_messages = processed_messages[::-1]
+    result = "|".join(processed_messages)
     # Respond to the mention (for example, you could use your chat model here)
-    output = chatgpt_chain.predict(human_input=text)
+    output = chatgpt_chain.predict(human_input=result)
     
     # Send an ephemeral message to the user who mentioned the app
     client.chat_postEphemeral(
@@ -92,10 +162,7 @@ def handle_app_mention_events(body, logger, client):
         text=output
     )
     
-    # Fetch the last 24 hours of messages (if you still need this functionality)
-    messages = cleanMessage(fetch_messages_from_last_24_hours(channel_id, os.environ.get("SLACK_BOT_TOKEN")))
-    print(messages)
-
+    
 
 
 # Start the app
