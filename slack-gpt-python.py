@@ -1,7 +1,9 @@
 import os
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
+from langchain.llms import OpenAI
+from langchain.chains import ConversationChain, LLMChain
+from langchain.prompts import PromptTemplate
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 
 # Initialize app with bot token and socket mode handler
