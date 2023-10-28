@@ -1,5 +1,5 @@
 import os
-from slack_bolt import app
+from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
