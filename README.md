@@ -2,7 +2,11 @@
 
 ## Overview
 
-This code is an implementation of a Slack bot that summarizes text conversations in a professional organization's channel. The bot extracts messages from the Slack channel, processes them, and uses the Langchain library to generate summaries. Here is a brief overview of the code and how to use it:
+In the ever-expanding world of workplace communication through platforms like Slack, Discord, GroupMe, and more, managing a growing stream of notifications has become a common challenge. With numerous chats contributing to information clutter, it often becomes difficult to filter and grasp the crucial details within these conversations. This necessitates spending time reading through all chats, regardless of their importance.
+
+To address this issue, our hackOHI/O project, developed during the Ohio State University Hackathon, introduces Slack-GPT, a workplace summarizer designed to simplify the process. Slack-GPT focuses on summarizing the content of the past 24 hours' worth of logged chats in a professional organization's Slack channel.
+
+This code serves as the implementation of a Slack bot that automates the process. It extracts messages from a Slack channel, processes them, and utilizes the Langchain library to generate concise summaries. This README provides an overview of the code's functionality and instructions on how to use it:
 
 ## Prerequisites
 
